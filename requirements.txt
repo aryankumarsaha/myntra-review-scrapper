@@ -3,7 +3,7 @@
 # selenium==4.15.2
 # beautifulsoup4==4.12.3
 # lxml==5.2.1
-streamlit==1.32.0
-pandas==2.1.4
+streamlit==1.29.0
+pandas==2.0.3
 # beautifulsoup4==4.12.3
 # lxml==5.2.1
