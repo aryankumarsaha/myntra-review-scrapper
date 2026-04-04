@@ -4,22 +4,22 @@
 
 ## 📌 Problem Statement
 
-E-commerce platforms contain vast amounts of unstructured review data. Businesses often struggle to extract meaningful insights related to product performance, pricing perception, and customer sentiment.
+E-commerce platforms generate a massive amount of unstructured customer review data. Businesses often struggle to extract meaningful insights such as customer sentiment, product performance, and pricing perception from this data.
 
-This project solves a **real B2B use case**:
+This project addresses a **real B2B use case**:
 
-> Enabling businesses to analyze product reviews and customer sentiment from Myntra in a structured and usable format.
+> Enabling businesses to transform unstructured review data into structured insights for better decision-making.
 
 ---
 
 ## 💡 Solution Overview
 
-An end-to-end **data engineering pipeline** that:
+This project implements an end-to-end **data engineering pipeline** that:
 
-1. Scrapes product review data from Myntra
-2. Cleans and standardizes the data
-3. Stores it in a structured database
-4. Provides a **dynamic dashboard** for insights
+1. Scrapes product and review data from Myntra
+2. Cleans and standardizes the raw data
+3. Stores processed data in a structured format
+4. Provides an interactive dashboard for analysis
 
 ---
 
@@ -31,22 +31,22 @@ An end-to-end **data engineering pipeline** that:
 
 ## 🚀 Key Features
 
-* 🔍 Search products dynamically
-* 🌐 Analyze product via URL
+* 🔍 Search and analyze products
+* 🌐 URL-based product analysis
 * 📊 Product-level insights (price, rating)
 * 💬 Positive & negative review extraction
-* 🧹 Automated data cleaning
-* 💾 Data storage in SQLite & CSV
-* 🔄 Reset and rerun pipeline
+* 🧹 Data cleaning and preprocessing pipeline
+* 💾 Storage using SQLite & CSV
+* 🔄 Reset and rerun functionality
 
 ---
 
 ## ⚙️ Tech Stack
 
 * **Python**
-* **Selenium + BeautifulSoup** (data scraping)
+* **Selenium + BeautifulSoup** (scraping)
 * **Pandas** (data processing)
-* **SQLite** (data storage)
+* **SQLite** (storage)
 * **Streamlit** (dashboard)
 * **Render** (deployment)
 
@@ -54,7 +54,7 @@ An end-to-end **data engineering pipeline** that:
 
 ## 🧠 Architecture
 
-```
+```id="arch001"
 Scraper (Selenium + BS4)
         ↓
 Data Cleaning (Pandas)
@@ -70,29 +70,29 @@ Dashboard (Streamlit)
 
 ### 1. Scraper
 
-* Extracts product URLs and reviews
+* Extracts product links, ratings, and reviews
 * Handles:
 
-  * Pagination
+  * Multiple product pages
   * Missing fields
   * Dynamic content
 
 ### 2. Data Cleaning
 
-* Cleans price and rating values
-* Converts data into structured numeric format
-* Removes invalid/missing entries
+* Removes non-numeric characters from price and ratings
+* Converts values into structured numeric format
+* Drops invalid or missing entries
 
 ### 3. Storage
 
-* Stores processed data in:
+* Cleaned data is stored in:
 
   * SQLite database
   * CSV file
 
-### 4. Dashboard
+### 4. Dashboard (Business Interface)
 
-* Interactive interface for users
+* Interactive UI built with Streamlit
 * Displays:
 
   * Product insights
@@ -111,7 +111,7 @@ Dashboard (Streamlit)
 
 ## ▶️ Run Locally
 
-```bash
+```bash id="run001"
 pip install -r requirements.txt
 python main.py
 streamlit run app/streamlit_app.py
@@ -121,67 +121,77 @@ streamlit run app/streamlit_app.py
 
 ## ⚠️ Deployment Limitations & Design Decisions
 
-### 🚫 Why Live Scraping is Disabled
+### 🚫 Why Selenium is Not Used in the Deployed Application
 
-The deployed application does not perform real-time scraping due to platform constraints:
+Selenium requires a full browser environment to operate:
 
-* Render does not support full browser environments required by Selenium
-* ChromeDriver and GUI-based automation are restricted
-* Myntra may block automated scraping requests
+```text id="flow001"
+Python → Selenium → ChromeDriver → Chrome Browser
+```
+
+However, cloud platforms like Render have the following constraints:
+
+* ❌ No GUI (graphical interface) support
+* ❌ No pre-installed browser (Chrome/Firefox)
+* ❌ No browser drivers (ChromeDriver)
+* ❌ Restricted system-level access
+* ❌ Limited CPU and memory
+
+Even in headless mode, Selenium still requires browser binaries and drivers, which are not available in such environments.
 
 ---
 
-### ✅ Adopted Solution (Production Approach)
+### 🚀 Adopted Solution (Production-Oriented Design)
 
-To ensure reliability, the project follows a **decoupled architecture**:
+To ensure reliability, the architecture was redesigned:
 
-```
+```text id="flow002"
 Local Scraper → Cleaned Data → Database/CSV → Deployed Dashboard
 ```
 
-* Scraping is performed locally
-* Data is stored and reused
-* Dashboard serves preprocessed data
+* Scraping is performed locally or offline
+* Cleaned data is stored and reused
+* The deployed dashboard reads preprocessed data
 
 ---
 
 ### 🎯 Why This Approach is Better
 
-* Ensures stable deployment
-* Avoids browser dependency issues
-* Improves performance
-* Reflects real-world data engineering systems
+* ✅ Ensures stable deployment
+* ✅ Avoids browser dependency issues
+* ✅ Improves performance
+* ✅ Follows real-world data engineering practices
 
 ---
 
 ## 🚧 Challenges Faced
 
 * Python 3.14 compatibility issues
-* Pandas build failures
-* Selenium not supported in cloud environment
+* Pandas and Pillow build failures
+* Selenium not supported in deployment
 
-### ✅ Solutions
+### ✅ Solutions Implemented
 
 * Downgraded Python to 3.10
-* Used compatible library versions
-* Separated scraping from UI
+* Updated library versions for compatibility
+* Separated scraping from UI layer
 
 ---
 
 ## 🧠 Future Improvements
 
-* Add sentiment analysis (ML/NLP)
-* Automate scraping using scheduler
-* Add charts and visualizations
+* Add sentiment analysis (NLP/ML)
+* Automate scraping using schedulers (cron/Airflow)
+* Add data visualizations and charts
 * Use scalable database (PostgreSQL)
-* Deploy scraper as a microservice
+* Deploy scraper as a separate microservice
 
 ---
 
 ## 📦 Submission Notes
 
 * Fully deployed working application
-* Clean GitHub repository
+* Clean and structured GitHub repository
 * End-to-end pipeline implemented
 * Business-focused solution
 
@@ -191,9 +201,9 @@ Local Scraper → Cleaned Data → Database/CSV → Deployed Dashboard
 
 This project demonstrates the ability to:
 
-* Identify a real-world problem
-* Build a complete data pipeline
-* Handle deployment challenges
-* Deliver a production-ready solution
+* Identify a real-world business problem
+* Build an end-to-end data pipeline
+* Handle deployment challenges effectively
+* Deliver a scalable and production-ready solution
 
 🚀 Ready for real-world data engineering tasks.
