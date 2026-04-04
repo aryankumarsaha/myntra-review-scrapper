@@ -7,3 +7,6 @@ streamlit==1.32.0
 pandas==2.3.3
 numpy==1.26.4
 pillow==10.4.0
+selenium==4.15.2
+beautifulsoup4==4.12.3
+lxml==5.2.1

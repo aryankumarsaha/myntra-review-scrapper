@@ -5,97 +5,118 @@ import time
 from selenium.webdriver.chrome.options import Options
 from urllib.parse import quote
 
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 
 class ScrapeReviews:
     def __init__(self, product_name: str, no_of_products: int):
         options = Options()
-        # options.add_argument('--headless')
+        # ⚠ Disable headless for Myntra reliability
+        # options.add_argument("--headless")
+
+        options.add_argument("--start-maximized")
 
         self.driver = webdriver.Chrome(options=options)
         self.product_name = product_name
         self.no_of_products = no_of_products
 
     # -------------------------------
-    # MULTI PRODUCT SCRAPER
+    # SCROLL FUNCTION
+    # -------------------------------
+    def scroll_page(self):
+        for _ in range(3):
+            self.driver.execute_script("window.scrollBy(0, 2000);")
+            time.sleep(2)
+
+    # -------------------------------
+    # GET PRODUCT URLS
     # -------------------------------
     def scrape_product_urls(self, product_name):
         search_string = product_name.replace(" ", "-")
         encoded_query = quote(search_string)
 
         self.driver.get(f"https://www.myntra.com/{search_string}?rawQuery={encoded_query}")
-        time.sleep(3)
+
+        time.sleep(5)
+        self.scroll_page()
 
         soup = bs(self.driver.page_source, "html.parser")
 
         product_urls = []
-        containers = soup.find_all("ul", {"class": "results-base"})
 
-        for container in containers:
-            links = container.find_all("a", href=True)
-            for link in links:
-                product_urls.append(link["href"])
+        for a in soup.find_all("a", href=True):
+            if "/buy" in a["href"]:
+                product_urls.append(a["href"])
 
-        return product_urls[:self.no_of_products]
+        return list(set(product_urls))[:self.no_of_products]
 
+    # -------------------------------
+    # GET PRODUCT DETAILS
+    # -------------------------------
     def extract_reviews(self, product_link):
-        url = "https://www.myntra.com/" + product_link
-        self.driver.get(url)
-        time.sleep(2)
+        try:
+            url = "https://www.myntra.com/" + product_link
+            self.driver.get(url)
+            time.sleep(3)
 
-        soup = bs(self.driver.page_source, "html.parser")
+            soup = bs(self.driver.page_source, "html.parser")
 
-        title = soup.find("title").text if soup.find("title") else "No Title"
+            title = soup.title.text if soup.title else "No Title"
 
-        rating_tag = soup.find("div", {"class": "index-overallRating"})
-        rating = rating_tag.find("div").text if rating_tag else "0"
+            price_tag = soup.find("span", {"class": "pdp-price"})
+            price = price_tag.text if price_tag else "0"
 
-        price_tag = soup.find("span", {"class": "pdp-price"})
-        price = price_tag.text if price_tag else "0"
+            review_link = soup.find("a", {"class": "detailed-reviews-allReviews"})
 
-        review_link = soup.find("a", {"class": "detailed-reviews-allReviews"})
+            if not review_link:
+                return None
 
-        if not review_link:
+            return {
+                "title": title,
+                "price": price,
+                "review_link": review_link["href"],
+            }
+        except:
             return None
 
-        return {
-            "title": title,
-            "rating": rating,
-            "price": price,
-            "review_link": review_link["href"],
-        }
-
+    # -------------------------------
+    # GET REVIEWS
+    # -------------------------------
     def extract_products(self, product_data):
-        review_url = "https://www.myntra.com" + product_data["review_link"]
-        self.driver.get(review_url)
-        time.sleep(3)
+        try:
+            review_url = "https://www.myntra.com" + product_data["review_link"]
+            self.driver.get(review_url)
 
-        soup = bs(self.driver.page_source, "html.parser")
+            time.sleep(3)
+            self.scroll_page()
 
-        reviews = soup.find_all("div", {"class": "detailed-reviews-userReviewsContainer"})
+            soup = bs(self.driver.page_source, "html.parser")
 
-        data = []
+            reviews = soup.find_all("div", {"class": "detailed-reviews-userReviewsContainer"})
 
-        for review in reviews[:5]:
-            try:
-                user_rating = review.find("span", class_="user-review-starRating").text
-            except:
-                user_rating = "0"
+            data = []
 
-            try:
-                comment = review.find("div", class_="user-review-reviewTextWrapper").text
-            except:
-                comment = "No Comment"
+            for review in reviews:
+                rating_tag = review.find("span", class_="user-review-starRating")
+                comment_tag = review.find("div", class_="user-review-reviewTextWrapper")
 
-            data.append({
-                "Product Name": product_data["title"],
-                "Over_All_Rating": product_data["rating"],
-                "Price": product_data["price"],
-                "Rating": user_rating,
-                "Comment": comment
-            })
+                data.append({
+                    "Product Name": product_data["title"],
+                    "Price": product_data["price"],
+                    "Rating": rating_tag.text if rating_tag else "0",
+                    "Comment": comment_tag.text if comment_tag else "No Comment"
+                })
 
-        return pd.DataFrame(data)
+            return pd.DataFrame(data)
 
+        except:
+            return pd.DataFrame()
+
+    # -------------------------------
+    # MAIN
+    # -------------------------------
     def get_review_data(self):
         product_urls = self.scrape_product_urls(self.product_name)
 
@@ -106,7 +127,9 @@ class ScrapeReviews:
 
             if product_data:
                 df = self.extract_products(product_data)
-                all_data.append(df)
+
+                if not df.empty:
+                    all_data.append(df)
 
         self.driver.quit()
 
@@ -114,61 +137,6 @@ class ScrapeReviews:
             return pd.DataFrame()
 
         return pd.concat(all_data, ignore_index=True)
-
-    # -------------------------------
-    # SINGLE PRODUCT (URL BASED)
-    # -------------------------------
-    def scrape_single_product(self, product_url):
-        self.driver.get(product_url)
-        time.sleep(3)
-
-        soup = bs(self.driver.page_source, "html.parser")
-
-        title = soup.find("title").text if soup.find("title") else "No Title"
-
-        rating_tag = soup.find("div", {"class": "index-overallRating"})
-        rating = rating_tag.find("div").text if rating_tag else "0"
-
-        price_tag = soup.find("span", {"class": "pdp-price"})
-        price = price_tag.text if price_tag else "0"
-
-        review_link = soup.find("a", {"class": "detailed-reviews-allReviews"})
-
-        if not review_link:
-            return pd.DataFrame()
-
-        review_url = "https://www.myntra.com" + review_link["href"]
-        self.driver.get(review_url)
-        time.sleep(3)
-
-        soup = bs(self.driver.page_source, "html.parser")
-
-        reviews = soup.find_all("div", {"class": "detailed-reviews-userReviewsContainer"})
-
-        data = []
-
-        for review in reviews[:5]:
-            try:
-                user_rating = review.find("span", class_="user-review-starRating").text
-            except:
-                user_rating = "0"
-
-            try:
-                comment = review.find("div", class_="user-review-reviewTextWrapper").text
-            except:
-                comment = "No Comment"
-
-            data.append({
-                "Product Name": title,
-                "Over_All_Rating": rating,
-                "Price": price,
-                "Rating": user_rating,
-                "Comment": comment
-            })
-
-        self.driver.quit()
-
-        return pd.DataFrame(data)
 
 
 # # from flask import request
@@ -415,5 +383,3 @@ class ScrapeReviews:
 
 #         except Exception as e:
 #             raise CustomException(e, sys)
-
-

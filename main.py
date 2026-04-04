@@ -14,16 +14,12 @@ def run_pipeline():
     print("Cleaning done ✅")
 
     save_to_db(df)
+    print("Saved to database ✅")
 
-    # 🔥 IMPORTANT ADD
-    df.to_csv("data.csv", index=False)
-
-    print("Saved to database & CSV ✅")
     print("Pipeline completed 🚀")
 
 if __name__ == "__main__":
     run_pipeline()
-
 
 # from scraper.myntra_scraper import ScrapeReviews
 # from processing.clean_data import clean_data

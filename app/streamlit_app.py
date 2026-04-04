@@ -1,13 +1,6 @@
 
-
-
-
-
 # .\venv\Scripts\activate
 # streamlit run app/streamlit_app.py
-
-
-
 import streamlit as st
 import sys
 import os
@@ -17,6 +10,7 @@ import pandas as pd
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from database.db import load_data, save_to_db
+from scraper.myntra_scraper import ScrapeReviews
 from processing.clean_data import clean_data
 
 st.set_page_config(page_title="Myntra Dashboard", layout="wide")
@@ -30,18 +24,18 @@ if "mode" not in st.session_state:
     st.session_state.mode = None
 
 # -------------------------------
-# INPUTS (now just for UI)
+# INPUTS
 # -------------------------------
-product_input = st.text_input("🔎 Search Product (demo only)", "shoes")
-url_input = st.text_input("🔗 Paste Product URL (demo only)")
+product_input = st.text_input("🔎 Search Product", "nike shoes")
+url_input = st.text_input("🔗 Paste Product URL")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    search_btn = st.button("🔍 Load Products")
+    search_btn = st.button("🔍 Search Products")
 
 with col2:
-    url_btn = st.button("🌐 Load from URL")
+    url_btn = st.button("🌐 Fetch from URL")
 
 with col3:
     reset_btn = st.button("🔄 Reset")
@@ -54,66 +48,126 @@ if reset_btn:
     st.experimental_rerun()
 
 # -------------------------------
-# LOAD DATA (NO SCRAPING)
+# SEARCH MODE
 # -------------------------------
-if search_btn or url_btn:
-    with st.spinner("Loading data..."):
-        df = pd.read_csv("data.csv")   # 🔥 MAIN CHANGE
-        df = clean_data(df)
-        save_to_db(df)
+if search_btn:
+    with st.spinner("Scraping products..."):
+        scraper = ScrapeReviews(product_input, 3)
+        df = scraper.get_review_data()
 
+        if df.empty:
+            st.error("❌ No data scraped. Try another product.")
+            st.stop()
+
+        df = clean_data(df)
+
+        if df.empty:
+            st.error("❌ Data cleaning removed all rows.")
+            st.stop()
+
+        save_to_db(df)
         st.session_state.mode = "multi"
-        st.success("✅ Data loaded!")
+        st.success("✅ Products fetched!")
+
+# -------------------------------
+# URL MODE
+# -------------------------------
+if url_btn and url_input:
+    with st.spinner("Fetching product..."):
+        scraper = ScrapeReviews("", 1)
+        df = scraper.scrape_single_product(url_input)
+
+        if df.empty:
+            st.error("❌ Could not fetch product.")
+            st.stop()
+
+        df = clean_data(df)
+
+        if df.empty:
+            st.error("❌ Data cleaning removed all rows.")
+            st.stop()
+
+        save_to_db(df)
+        st.session_state.mode = "single"
+        st.success("✅ Product fetched!")
 
 # -------------------------------
 # DISPLAY
 # -------------------------------
 if st.session_state.mode:
-
     df = load_data()
 
-    st.subheader("📦 Product-wise Insights")
+    if df.empty:
+        st.warning("⚠️ No data available.")
+        st.stop()
 
-    product_df = df.groupby("Product Name").agg({
-        "Price": "mean",
-        "Rating": "mean"
-    }).reset_index()
+    # -------------------------------
+    # SINGLE PRODUCT
+    # -------------------------------
+    if st.session_state.mode == "single":
+        st.subheader("🛍️ Product Details")
 
-    for product in product_df["Product Name"]:
+        product_name = df["Product Name"].iloc[0]
+        price = df["Price"].iloc[0]
+        avg_rating = round(df["Rating"].mean(), 2)
 
-        st.markdown(f"### 🛍️ {product}")
-
-        product_reviews = df[df["Product Name"] == product]
-
-        avg_rating = round(product_reviews["Rating"].mean(), 2)
-        price = product_reviews["Price"].iloc[0]
-
+        st.write(f"### {product_name}")
         st.write(f"💰 Price: ₹{price}")
         st.write(f"⭐ Avg Rating: {avg_rating}")
 
-        # Positive reviews
-        st.write("🟢 Positive Reviews:")
-        positive = product_reviews[product_reviews["Rating"] >= 4]
+        positive = df[df["Rating"] >= 4]
+        negative = df[df["Rating"] <= 2]
+
+        st.subheader("🟢 Positive Reviews")
         for comment in positive["Comment"]:
             st.write(f"✔ {comment}")
 
-        # Negative reviews
-        st.write("🔴 Negative Reviews:")
-        negative = product_reviews[product_reviews["Rating"] <= 2]
+        st.subheader("🔴 Negative Reviews")
         for comment in negative["Comment"]:
             st.write(f"❌ {comment}")
 
-        st.markdown("---")
+    # -------------------------------
+    # MULTI PRODUCT
+    # -------------------------------
+    elif st.session_state.mode == "multi":
+        st.subheader("📦 Product-wise Insights")
+
+        product_df = df.groupby("Product Name").agg({
+            "Price": "mean",
+            "Rating": "mean"
+        }).reset_index()
+
+        for _, row in product_df.iterrows():
+            product = row["Product Name"]
+
+            st.markdown(f"### 🛍️ {product}")
+
+            product_reviews = df[df["Product Name"] == product]
+
+            st.write(f"💰 Price: ₹{int(row['Price'])}")
+            st.write(f"⭐ Avg Rating: {round(row['Rating'], 2)}")
+
+            st.write("🟢 Positive Reviews:")
+            for comment in product_reviews[product_reviews["Rating"] >= 4]["Comment"]:
+                st.write(f"✔ {comment}")
+
+            st.write("🔴 Negative Reviews:")
+            for comment in product_reviews[product_reviews["Rating"] <= 2]["Comment"]:
+                st.write(f"❌ {comment}")
+
+            st.markdown("---")
+
+# # .\venv\Scripts\activate
+# # streamlit run app/streamlit_app.py
 
 
-# import streamlit as st
+
 # import sys
 # import os
-# import pandas as pd
 
-# # Fix path
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# import streamlit as st
 # from database.db import load_data, save_to_db
 # from scraper.myntra_scraper import ScrapeReviews
 # from processing.clean_data import clean_data
@@ -122,15 +176,9 @@ if st.session_state.mode:
 
 # st.title("🛍️ Myntra Product Analyzer")
 
-# # -------------------------------
-# # SESSION STATE
-# # -------------------------------
 # if "mode" not in st.session_state:
 #     st.session_state.mode = None
 
-# # -------------------------------
-# # INPUTS
-# # -------------------------------
 # product_input = st.text_input("🔎 Search Product", "shoes")
 # url_input = st.text_input("🔗 Paste Product URL")
 
@@ -145,20 +193,19 @@ if st.session_state.mode:
 # with col3:
 #     reset_btn = st.button("🔄 Reset")
 
-# # -------------------------------
-# # RESET
-# # -------------------------------
 # if reset_btn:
 #     st.session_state.mode = None
 #     st.experimental_rerun()
 
-# # -------------------------------
-# # MULTI PRODUCT MODE
-# # -------------------------------
+# # ---------------- MULTI ----------------
 # if search_btn:
 #     with st.spinner("Scraping products..."):
 #         scraper = ScrapeReviews(product_input, 3)
 #         df = scraper.get_review_data()
+
+#         if df.empty:
+#             st.error("❌ No data scraped. Try another product.")
+#             st.stop()
 
 #         df = clean_data(df)
 #         save_to_db(df)
@@ -166,13 +213,15 @@ if st.session_state.mode:
 #         st.session_state.mode = "multi"
 #         st.success("✅ Products fetched!")
 
-# # -------------------------------
-# # URL MODE
-# # -------------------------------
+# # ---------------- SINGLE ----------------
 # if url_btn and url_input:
 #     with st.spinner("Fetching product..."):
 #         scraper = ScrapeReviews("", 1)
 #         df = scraper.scrape_single_product(url_input)
+
+#         if df.empty:
+#             st.error("❌ No data scraped.")
+#             st.stop()
 
 #         df = clean_data(df)
 #         save_to_db(df)
@@ -180,74 +229,35 @@ if st.session_state.mode:
 #         st.session_state.mode = "single"
 #         st.success("✅ Product fetched!")
 
-# # -------------------------------
-# # DISPLAY
-# # -------------------------------
+# # ---------------- DISPLAY ----------------
 # if st.session_state.mode:
 
 #     df = load_data()
 
-#     # -------------------------------
-#     # SINGLE PRODUCT
-#     # -------------------------------
 #     if st.session_state.mode == "single":
-
 #         st.subheader("🛍️ Product Details")
 
-#         product_name = df["Product Name"].iloc[0]
-#         price = df["Price"].iloc[0]
-#         avg_rating = round(df["Rating"].mean(), 2)
+#         st.write(df.iloc[0]["Product Name"])
+#         st.write(f"💰 ₹{df.iloc[0]['Price']}")
+#         st.write(f"⭐ {round(df['Rating'].mean(),2)}")
 
-#         st.write(f"### {product_name}")
-#         st.write(f"💰 Price: ₹{price}")
-#         st.write(f"⭐ Avg Rating: {avg_rating}")
-
-#         # Positive & Negative Reviews
-#         positive = df[df["Rating"] >= 4]
-#         negative = df[df["Rating"] <= 2]
-
-#         st.subheader("🟢 Positive Reviews")
-#         for comment in positive["Comment"]:
-#             st.write(f"✔ {comment}")
-
-#         st.subheader("🔴 Negative Reviews")
-#         for comment in negative["Comment"]:
-#             st.write(f"❌ {comment}")
-
-#     # -------------------------------
-#     # MULTI PRODUCT
-#     # -------------------------------
-#     elif st.session_state.mode == "multi":
-
+#     else:
 #         st.subheader("📦 Product-wise Insights")
 
-#         product_df = df.groupby("Product Name").agg({
-#             "Price": "mean",
-#             "Rating": "mean"
-#         }).reset_index()
-
-#         for product in product_df["Product Name"]:
+#         for product in df["Product Name"].unique():
+#             temp = df[df["Product Name"] == product]
 
 #             st.markdown(f"### 🛍️ {product}")
 
-#             product_reviews = df[df["Product Name"] == product]
+#             st.write(f"💰 ₹{temp['Price'].iloc[0]}")
+#             st.write(f"⭐ Avg Rating: {round(temp['Rating'].mean(),2)}")
 
-#             avg_rating = round(product_reviews["Rating"].mean(), 2)
-#             price = product_reviews["Price"].iloc[0]
+#             st.write("🟢 Positive Reviews")
+#             for c in temp[temp["Rating"] >= 4]["Comment"]:
+#                 st.write(f"✔ {c}")
 
-#             st.write(f"💰 Price: ₹{price}")
-#             st.write(f"⭐ Avg Rating: {avg_rating}")
-
-#             # Positive reviews
-#             st.write("🟢 Positive Reviews:")
-#             positive = product_reviews[product_reviews["Rating"] >= 4]
-#             for comment in positive["Comment"]:
-#                 st.write(f"✔ {comment}")
-
-#             # Negative reviews
-#             st.write("🔴 Negative Reviews:")
-#             negative = product_reviews[product_reviews["Rating"] <= 2]
-#             for comment in negative["Comment"]:
-#                 st.write(f"❌ {comment}")
+#             st.write("🔴 Negative Reviews")
+#             for c in temp[temp["Rating"] <= 2]["Comment"]:
+#                 st.write(f"❌ {c}")
 
 #             st.markdown("---")
