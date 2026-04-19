@@ -1,31 +1,49 @@
-<h1>🛍️ Myntra Product Review Analyzer (AI-Powered)</h1>
-📌 Problem
+<h1 align="center">🛍️ Myntra Product Review Analyzer</h1>
 
-E-commerce platforms generate large volumes of unstructured customer reviews, making it difficult for users and businesses to quickly assess product quality and sentiment.
+<p align="center">
+AI-powered system for scraping, analyzing, and recommending products using Transformer-based NLP
+</p>
 
-💡 Solution
+<hr>
 
-Built an end-to-end AI-powered data pipeline that:
+<h2>📌 Problem</h2>
+<p>
+E-commerce platforms generate massive amounts of <b>unstructured review data</b>, making it difficult to evaluate product quality and customer sentiment efficiently.
+</p>
 
-Scrapes product reviews from Myntra
-Cleans and processes raw data
-Applies transformer-based NLP (DistilBERT) for sentiment analysis
-Stores structured data in a database
-Generates intelligent product recommendations (Buy / Not Buy)
-Visualizes insights via an interactive dashboard
+<hr>
 
+<h2>💡 Solution</h2>
+<p>
+Developed an <b>end-to-end AI pipeline</b> that:
+</p>
+<ul>
+  <li>Scrapes product reviews from Myntra</li>
+  <li>Cleans and processes raw data</li>
+  <li>Applies <b>DistilBERT (Transformer NLP)</b> for sentiment analysis</li>
+  <li>Stores structured data in a database</li>
+  <li>Generates <b>Buy / Not Buy</b> recommendations</li>
+</ul>
 
-🚀 Features
-🔍 Dynamic product search using keywords
-🌐 Single product analysis via URL
-🧠 Sentiment analysis using DistilBERT (Transformer NLP)
-📊 Product-level insights (price, rating, reviews)
-💬 Positive & negative review classification
-🤖 AI-based recommendation system (Buy / Not Buy)
-🔄 Reset and re-run pipeline
-🌐 Flask API for programmatic access
+<hr>
 
-🧠 Architecture
+<h2>🚀 Features</h2>
+<ul>
+  <li>🔍 Dynamic product search</li>
+  <li>🌐 Product analysis via URL</li>
+  <li>🧠 Transformer-based sentiment analysis</li>
+  <li>📊 Product insights (price, rating)</li>
+  <li>💬 Positive & negative review classification</li>
+  <li>🤖 AI recommendation system</li>
+  <li>🔄 Reset & re-run pipeline</li>
+  <li>🌐 Flask API support</li>
+</ul>
+
+<hr>
+
+<h2>🧠 Architecture</h2>
+
+<pre>
 User Input (Search / URL)
         ↓
 Scraper (Selenium + BeautifulSoup)
@@ -41,34 +59,56 @@ Database (SQLite)
 Aggregation + Decision Engine
         ↓
 Dashboard (Streamlit) + API (Flask)
+</pre>
 
-⚙️ Tech Stack
-Programming: Python
-Web Scraping: Selenium, BeautifulSoup
-Data Processing: Pandas, NumPy
-NLP: Transformers (DistilBERT)
-Database: SQLite
-Visualization/UI: Streamlit
-API: Flask
-📊 AI Logic (Recommendation Engine)
-Classifies each review as POSITIVE or NEGATIVE
-Computes overall sentiment ratio
-Generates decision:
+<hr>
+
+<h2>⚙️ Tech Stack</h2>
+<ul>
+  <li><b>Python</b></li>
+  <li><b>Selenium + BeautifulSoup</b></li>
+  <li><b>Pandas, NumPy</b></li>
+  <li><b>Transformers (DistilBERT)</b></li>
+  <li><b>SQLite</b></li>
+  <li><b>Streamlit</b></li>
+  <li><b>Flask</b></li>
+</ul>
+
+<hr>
+
+<h2>📊 AI Recommendation Logic</h2>
+
+<pre>
 If Positive Reviews ≥ 60% → ✅ Recommended (Buy)
 Else → ❌ Not Recommended
+</pre>
 
-▶️ Run Locally
-# Install dependencies
+<hr>
+
+<h2>▶️ Run Locally</h2>
+
+<pre>
 pip install -r requirements.txt
-
-# Run pipeline (scraping + NLP + DB)
 python main.py
-
-# Launch dashboard
 streamlit run app/streamlit_app.py
+</pre>
 
-🧠 Key Highlights
-End-to-end data pipeline + AI integration
-Uses transformer-based NLP (industry standard)
-Combines scraping + ML + dashboard + API
-Designed for real-world product decision-making
+
+
+
+
+<hr>
+
+<h2>⭐ Key Highlights</h2>
+<ul>
+  <li>End-to-end pipeline (Scraping → NLP → Recommendation)</li>
+  <li>Uses Transformer-based NLP (DistilBERT)</li>
+  <li>Real-world application</li>
+  <li>Dashboard + API integration</li>
+</ul>
+
+<hr>
+
+<p align="center">
+⭐ If you found this useful, consider giving a star!
+</p>
