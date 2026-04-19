@@ -16,10 +16,22 @@ def get_reviews():
 def summary():
     df = load_data()
 
+    positive_count = len(df[df["Sentiment"] == "POSITIVE"])
+    negative_count = len(df[df["Sentiment"] == "NEGATIVE"])
+    total = len(df)
+
+    positive_ratio = positive_count / total if total > 0 else 0
+
+    decision = "Buy" if positive_ratio >= 0.6 else "Not Buy"
+
     result = {
-        "total_reviews": len(df),
+        "total_reviews": total,
         "avg_rating": df["Rating"].mean(),
-        "avg_price": df["Price"].mean()
+        "avg_price": df["Price"].mean(),
+        "positive_reviews": positive_count,
+        "negative_reviews": negative_count,
+        "positive_ratio": positive_ratio,
+        "decision": decision
     }
 
     return jsonify(result)

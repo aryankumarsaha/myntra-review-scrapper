@@ -10,3 +10,5 @@ pillow==10.4.0
 selenium==4.15.2
 beautifulsoup4==4.12.3
 lxml==5.2.1
+transformers
+torch
