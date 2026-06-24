@@ -182,11 +182,23 @@ if "mode" not in st.session_state:
     except Exception:
         st.session_state.mode = None
 
-# Tab Layout
-tab_run, tab_dash, tab_reviews = st.tabs(["🔄 Run Pipeline / Scraper", "📊 Dashboard Insights", "💬 Review Explorer"])
+# Initialize session state for navigation
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "🔄 Run Pipeline / Scraper"
 
-# ----------------- TAB 1: RUN PIPELINE -----------------
-with tab_run:
+# Horizontal Radio Navigation Menu
+st.session_state.active_tab = st.radio(
+    "Navigation Menu",
+    options=["🔄 Run Pipeline / Scraper", "📊 Dashboard Insights", "💬 Review Explorer"],
+    index=["🔄 Run Pipeline / Scraper", "📊 Dashboard Insights", "💬 Review Explorer"].index(st.session_state.active_tab),
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+st.markdown("<div style='margin-bottom: 15px;'></div>", unsafe_allow_html=True)
+
+# ----------------- SECTION 1: RUN PIPELINE -----------------
+if st.session_state.active_tab == "🔄 Run Pipeline / Scraper":
     st.subheader("⚙️ Scraping Control Center")
     st.markdown("Configure the automated scraper to gather data. The pipeline runs scraping, cleans attributes, predicts sentiment, and writes to SQLite database.")
 
@@ -244,6 +256,7 @@ with tab_run:
 
             save_to_db(df_processed)
             st.session_state.mode = "multi"
+            st.session_state.active_tab = "📊 Dashboard Insights"  # Redirect to dashboard tab programmatically
             st.success(f"🎉 Success! Processed & saved {len(df_processed)} reviews for search: '{product_input}'.")
             st.rerun()
 
@@ -271,6 +284,7 @@ with tab_run:
 
                 save_to_db(df_processed)
                 st.session_state.mode = "single"
+                st.session_state.active_tab = "📊 Dashboard Insights"  # Redirect to dashboard tab programmatically
                 st.success(f"🎉 Success! Processed & saved {len(df_processed)} reviews from URL.")
                 st.rerun()
 
@@ -287,8 +301,8 @@ with tab_run:
         except Exception as e:
             st.error(f"❌ Reset failed: {e}")
 
-# ----------------- TAB 2: DASHBOARD INSIGHTS -----------------
-with tab_dash:
+# ----------------- SECTION 2: DASHBOARD INSIGHTS -----------------
+elif st.session_state.active_tab == "📊 Dashboard Insights":
     try:
         df = load_data()
     except Exception:
@@ -399,8 +413,8 @@ with tab_dash:
                 hide_index=True
             )
 
-# ----------------- TAB 3: REVIEW EXPLORER -----------------
-with tab_reviews:
+# ----------------- SECTION 3: REVIEW EXPLORER -----------------
+elif st.session_state.active_tab == "💬 Review Explorer":
     try:
         df = load_data()
     except Exception:
