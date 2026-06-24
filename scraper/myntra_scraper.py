@@ -57,13 +57,20 @@ class ScrapeReviews:
     def scrape_product_urls(self, product_name):
         search_string = product_name.replace(" ", "-")
         encoded_query = quote(search_string)
-
-        self.driver.get(f"https://www.myntra.com/{search_string}?rawQuery={encoded_query}")
+        url = f"https://www.myntra.com/{search_string}?rawQuery={encoded_query}"
+        
+        print(f"[DEBUG SCRAPER] Opening URL: {url}")
+        self.driver.get(url)
 
         time.sleep(5)
         self.scroll_page()
 
-        soup = bs(self.driver.page_source, "html.parser")
+        page_title = self.driver.title
+        page_source = self.driver.page_source
+        print(f"[DEBUG SCRAPER] Page Title: '{page_title}'")
+        print(f"[DEBUG SCRAPER] Page Source Length: {len(page_source)}")
+
+        soup = bs(page_source, "html.parser")
 
         product_urls = []
 
@@ -71,6 +78,7 @@ class ScrapeReviews:
             if "/buy" in a["href"]:
                 product_urls.append(a["href"])
 
+        print(f"[DEBUG SCRAPER] Product URLs found: {len(product_urls)}")
         return list(set(product_urls))[:self.no_of_products]
 
     # -------------------------------
@@ -82,10 +90,16 @@ class ScrapeReviews:
                 url = product_link
             else:
                 url = "https://www.myntra.com/" + product_link.lstrip("/")
+            
+            print(f"[DEBUG SCRAPER] Loading product page: {url}")
             self.driver.get(url)
             time.sleep(3)
 
-            soup = bs(self.driver.page_source, "html.parser")
+            page_title = self.driver.title
+            page_source = self.driver.page_source
+            print(f"[DEBUG SCRAPER] Product Page Title: '{page_title}'")
+
+            soup = bs(page_source, "html.parser")
 
             title = soup.title.text if soup.title else "No Title"
 
@@ -95,6 +109,7 @@ class ScrapeReviews:
             review_link = soup.find("a", {"class": "detailed-reviews-allReviews"})
 
             if not review_link:
+                print(f"[DEBUG SCRAPER] No detailed reviews link found for '{title}'")
                 return None
 
             return {
@@ -102,7 +117,8 @@ class ScrapeReviews:
                 "price": price,
                 "review_link": review_link["href"],
             }
-        except:
+        except Exception as e:
+            print(f"[DEBUG SCRAPER] Exception in extract_reviews: {e}")
             return None
 
     # -------------------------------
