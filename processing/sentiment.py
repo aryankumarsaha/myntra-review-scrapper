@@ -1,12 +1,18 @@
-from transformers import pipeline
+_sentiment_pipeline = None
 
-# Load model once
-sentiment_pipeline = pipeline("sentiment-analysis")
+def _get_pipeline():
+    global _sentiment_pipeline
+    if _sentiment_pipeline is None:
+        from transformers import pipeline
+        # Load model once and cache it in memory
+        _sentiment_pipeline = pipeline("sentiment-analysis")
+    return _sentiment_pipeline
 
 def analyze_sentiment(df):
     if df is None or df.empty:
         return df
 
+    sentiment_pipeline = _get_pipeline()
     sentiments = []
     scores = []
 
