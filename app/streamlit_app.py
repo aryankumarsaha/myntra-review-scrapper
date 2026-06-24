@@ -229,7 +229,11 @@ with tab_run:
             df_raw = scraper.get_review_data()
 
             if df_raw.empty:
-                st.error("❌ No products/reviews were found. Try another term, or ensure Myntra is accessible.")
+                st.error("❌ No products/reviews were found.")
+                if hasattr(scraper, 'error_log') and scraper.error_log:
+                    st.warning("🔍 Scraper Diagnostic Log Trace:")
+                    for log in scraper.error_log:
+                        st.markdown(f"- {log}")
                 st.stop()
 
             st.info("🧹 Performing text cleaning and conversions...")
@@ -252,7 +256,11 @@ with tab_run:
                 df_raw = scraper.scrape_single_product(url_input)
 
                 if df_raw.empty:
-                    st.error("❌ Failed to scrape reviews. Confirm the URL, verify it has reviews, and try again.")
+                    st.error("❌ Failed to scrape reviews.")
+                    if hasattr(scraper, 'error_log') and scraper.error_log:
+                        st.warning("🔍 Scraper Diagnostic Log Trace:")
+                        for log in scraper.error_log:
+                            st.markdown(f"- {log}")
                     st.stop()
 
                 st.info("🧹 Processing & cleaning reviews data...")

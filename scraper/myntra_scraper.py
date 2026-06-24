@@ -6,13 +6,9 @@ import platform
 from selenium.webdriver.chrome.options import Options
 from urllib.parse import quote
 
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-
-
 class ScrapeReviews:
     def __init__(self, product_name: str, no_of_products: int):
+        self.error_log = []
         options = Options()
         
         # Automatically configure headless mode on cloud Linux deployments
@@ -30,15 +26,19 @@ class ScrapeReviews:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
 
-        self.driver = webdriver.Chrome(options=options)
-        
-        # Override navigator.webdriver to prevent detection
         try:
-            self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-                "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-            })
-        except Exception:
-            pass
+            self.driver = webdriver.Chrome(options=options)
+            
+            # Override navigator.webdriver to prevent detection
+            try:
+                self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+                    "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+                })
+            except Exception as cdp_err:
+                self.error_log.append(f"⚠️ CDP command override failed: {cdp_err}")
+        except Exception as driver_err:
+            self.driver = None
+            self.error_log.append(f"❌ Selenium Webdriver failed to initialize: {driver_err}")
 
         self.product_name = product_name
         self.no_of_products = no_of_products
@@ -47,57 +47,77 @@ class ScrapeReviews:
     # SCROLL FUNCTION
     # -------------------------------
     def scroll_page(self):
-        for _ in range(3):
-            self.driver.execute_script("window.scrollBy(0, 2000);")
-            time.sleep(2)
+        if not self.driver:
+            return
+        try:
+            for _ in range(3):
+                self.driver.execute_script("window.scrollBy(0, 2000);")
+                time.sleep(2)
+        except Exception as e:
+            self.error_log.append(f"⚠️ Error scrolling page: {e}")
 
     # -------------------------------
     # GET PRODUCT URLS
     # -------------------------------
     def scrape_product_urls(self, product_name):
-        search_string = product_name.replace(" ", "-")
-        encoded_query = quote(search_string)
-        url = f"https://www.myntra.com/{search_string}?rawQuery={encoded_query}"
-        
-        print(f"[DEBUG SCRAPER] Opening URL: {url}")
-        self.driver.get(url)
+        if not self.driver:
+            self.error_log.append("❌ scrape_product_urls aborted: Webdriver is not initialized.")
+            return []
 
-        time.sleep(5)
-        self.scroll_page()
+        try:
+            search_string = product_name.replace(" ", "-")
+            encoded_query = quote(search_string)
+            url = f"https://www.myntra.com/{search_string}?rawQuery={encoded_query}"
+            
+            print(f"[DEBUG] Navigating to search: {url}")
+            self.driver.get(url)
 
-        page_title = self.driver.title
-        page_source = self.driver.page_source
-        print(f"[DEBUG SCRAPER] Page Title: '{page_title}'")
-        print(f"[DEBUG SCRAPER] Page Source Length: {len(page_source)}")
+            time.sleep(5)
+            self.scroll_page()
 
-        soup = bs(page_source, "html.parser")
+            page_title = self.driver.title
+            page_source = self.driver.page_source
+            print(f"[DEBUG] Search page loaded. Title: '{page_title}'")
 
-        product_urls = []
+            soup = bs(page_source, "html.parser")
+            product_urls = []
 
-        for a in soup.find_all("a", href=True):
-            if "/buy" in a["href"]:
-                product_urls.append(a["href"])
+            for a in soup.find_all("a", href=True):
+                if "/buy" in a["href"]:
+                    product_urls.append(a["href"])
 
-        print(f"[DEBUG SCRAPER] Product URLs found: {len(product_urls)}")
-        return list(set(product_urls))[:self.no_of_products]
+            if not product_urls:
+                self.error_log.append(f"⚠️ No product links found on search page. Page title: '{page_title}' (Source length: {len(page_source)} chars)")
+                # If cloudflare is visible
+                if "cloudflare" in page_source.lower() or "challenge" in page_source.lower() or "denied" in page_title.lower():
+                    self.error_log.append("🚨 Detected Cloudflare / Access Denied bot protection blockage!")
+
+            return list(set(product_urls))[:self.no_of_products]
+        except Exception as e:
+            self.error_log.append(f"❌ Exception in scrape_product_urls: {e}")
+            return []
 
     # -------------------------------
     # GET PRODUCT DETAILS
     # -------------------------------
     def extract_reviews(self, product_link):
+        if not self.driver:
+            self.error_log.append("❌ extract_reviews aborted: Webdriver is not initialized.")
+            return None
+
         try:
             if product_link.startswith("http"):
                 url = product_link
             else:
                 url = "https://www.myntra.com/" + product_link.lstrip("/")
             
-            print(f"[DEBUG SCRAPER] Loading product page: {url}")
+            print(f"[DEBUG] Navigating to product: {url}")
             self.driver.get(url)
             time.sleep(3)
 
             page_title = self.driver.title
             page_source = self.driver.page_source
-            print(f"[DEBUG SCRAPER] Product Page Title: '{page_title}'")
+            print(f"[DEBUG] Product page loaded. Title: '{page_title}'")
 
             soup = bs(page_source, "html.parser")
 
@@ -109,7 +129,9 @@ class ScrapeReviews:
             review_link = soup.find("a", {"class": "detailed-reviews-allReviews"})
 
             if not review_link:
-                print(f"[DEBUG SCRAPER] No detailed reviews link found for '{title}'")
+                self.error_log.append(f"⚠️ No detailed reviews link found for '{title}' (URL: {url}). Page title: '{page_title}'")
+                if "cloudflare" in page_source.lower() or "challenge" in page_source.lower() or "denied" in page_title.lower():
+                    self.error_log.append("🚨 Detected Cloudflare / Access Denied bot protection blockage on product page!")
                 return None
 
             return {
@@ -118,21 +140,28 @@ class ScrapeReviews:
                 "review_link": review_link["href"],
             }
         except Exception as e:
-            print(f"[DEBUG SCRAPER] Exception in extract_reviews: {e}")
+            self.error_log.append(f"❌ Exception in extract_reviews: {e}")
             return None
 
     # -------------------------------
     # GET REVIEWS
     # -------------------------------
     def extract_products(self, product_data):
+        if not self.driver:
+            return pd.DataFrame()
+
         try:
             review_url = "https://www.myntra.com" + product_data["review_link"]
+            print(f"[DEBUG] Navigating to reviews page: {review_url}")
             self.driver.get(review_url)
 
             time.sleep(3)
             self.scroll_page()
 
-            soup = bs(self.driver.page_source, "html.parser")
+            page_title = self.driver.title
+            page_source = self.driver.page_source
+
+            soup = bs(page_source, "html.parser")
 
             reviews = soup.find_all("div", {"class": "detailed-reviews-userReviewsContainer"})
 
@@ -149,9 +178,15 @@ class ScrapeReviews:
                     "Comment": comment_tag.text if comment_tag else "No Comment"
                 })
 
+            if not data:
+                self.error_log.append(f"⚠️ No user reviews found on page '{product_data['title']}'. Title: '{page_title}'")
+                if "cloudflare" in page_source.lower() or "challenge" in page_source.lower() or "denied" in page_title.lower():
+                    self.error_log.append("🚨 Detected Cloudflare / Access Denied bot protection blockage on reviews page!")
+
             return pd.DataFrame(data)
 
-        except:
+        except Exception as e:
+            self.error_log.append(f"❌ Exception in extract_products: {e}")
             return pd.DataFrame()
 
     # -------------------------------
@@ -161,36 +196,47 @@ class ScrapeReviews:
         try:
             product_data = self.extract_reviews(product_url)
             if not product_data:
-                self.driver.quit()
+                if self.driver:
+                    self.driver.quit()
                 return pd.DataFrame()
 
             df = self.extract_products(product_data)
-            self.driver.quit()
+            if self.driver:
+                self.driver.quit()
             return df
-        except:
-            self.driver.quit()
+        except Exception as e:
+            self.error_log.append(f"❌ Exception in scrape_single_product: {e}")
+            if self.driver:
+                self.driver.quit()
             return pd.DataFrame()
 
     # -------------------------------
     # MAIN
     # -------------------------------
     def get_review_data(self):
-        product_urls = self.scrape_product_urls(self.product_name)
+        try:
+            product_urls = self.scrape_product_urls(self.product_name)
 
-        all_data = []
+            all_data = []
 
-        for url in product_urls:
-            product_data = self.extract_reviews(url)
+            for url in product_urls:
+                product_data = self.extract_reviews(url)
 
-            if product_data:
-                df = self.extract_products(product_data)
+                if product_data:
+                    df = self.extract_products(product_data)
 
-                if not df.empty:
-                    all_data.append(df)
+                    if not df.empty:
+                        all_data.append(df)
 
-        self.driver.quit()
+            if self.driver:
+                self.driver.quit()
 
-        if not all_data:
+            if not all_data:
+                return pd.DataFrame()
+
+            return pd.concat(all_data, ignore_index=True)
+        except Exception as e:
+            self.error_log.append(f"❌ Exception in get_review_data: {e}")
+            if self.driver:
+                self.driver.quit()
             return pd.DataFrame()
-
-        return pd.concat(all_data, ignore_index=True)
