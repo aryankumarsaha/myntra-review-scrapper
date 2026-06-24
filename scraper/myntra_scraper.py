@@ -2,6 +2,7 @@ from selenium import webdriver
 from bs4 import BeautifulSoup as bs
 import pandas as pd
 import time
+import platform
 from selenium.webdriver.chrome.options import Options
 from urllib.parse import quote
 
@@ -13,10 +14,14 @@ from selenium.webdriver.support import expected_conditions as EC
 class ScrapeReviews:
     def __init__(self, product_name: str, no_of_products: int):
         options = Options()
-        # ⚠ Disable headless for Myntra reliability
-        # options.add_argument("--headless")
-
-        options.add_argument("--start-maximized")
+        
+        # Automatically configure headless mode on cloud Linux deployments
+        if platform.system() == "Linux":
+            options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+        else:
+            options.add_argument("--start-maximized")
 
         self.driver = webdriver.Chrome(options=options)
         self.product_name = product_name
